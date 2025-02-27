@@ -1,5 +1,4 @@
 
-
 import java.util.*;
 
 class Process {
@@ -40,7 +39,10 @@ public class SRTF_With_CS {
         int n = processes.length;
         int currentTime = 0, completed = 0;
         int totalTurnaround = 0, totalWaiting = 0;
+        int totalIdleTime = 0;
+        int contextSwitches = 0;
         boolean isSwitching = false;
+        Process lastExecuted = null;
 
         List<String> ganttChart = new ArrayList<>();
 
@@ -60,6 +62,13 @@ public class SRTF_With_CS {
                     ganttChart.add("CS");
                     currentTime += CS;
                     isSwitching = false;
+                    contextSwitches++;
+                }
+
+                if (lastExecuted != null && lastExecuted != shortest) {
+                    ganttChart.add("CS");
+                    currentTime += CS;
+                    contextSwitches++;
                 }
 
                 ganttChart.add("P" + shortest.id);
@@ -76,29 +85,18 @@ public class SRTF_With_CS {
                     completed++;
                 }
 
-                // Check if the next process will cause a switch
-                Process nextShortest = null;
-                for (Process p : processes) {
-                    if (p.arrivalTime <= currentTime && p.remainingTime > 0) {
-                        if (nextShortest == null || p.remainingTime < nextShortest.remainingTime ||
-                                (p.remainingTime == nextShortest.remainingTime && p.arrivalTime < nextShortest.arrivalTime)) {
-                            nextShortest = p;
-                        }
-                    }
-                }
-
-                if (nextShortest != null && nextShortest != shortest) {
-                    isSwitching = true;
-                }
+                lastExecuted = shortest;
             } else {
+                ganttChart.add("Idle");
                 currentTime++;
+                totalIdleTime++;
             }
         }
 
-        printResults(processes, ganttChart, totalTurnaround, totalWaiting, CS, currentTime);
+        printResults(processes, ganttChart, totalTurnaround, totalWaiting, totalIdleTime, CS, contextSwitches, currentTime);
     }
 
-    public static void printResults(Process[] processes, List<String> ganttChart, int totalTurnaround, int totalWaiting, int CS, int totalTime) {
+    public static void printResults(Process[] processes, List<String> ganttChart, int totalTurnaround, int totalWaiting, int totalIdleTime, int CS, int contextSwitches, int totalTime) {
         System.out.println("\nGantt Chart:");
         for (String event : ganttChart) {
             System.out.print(event + " -> ");
@@ -108,11 +106,12 @@ public class SRTF_With_CS {
         int n = processes.length;
         double avgTAT = (double) totalTurnaround / n;
         double avgWT = (double) totalWaiting / n;
-        double cpuUtilization = (double) (totalTime - (CS * (ganttChart.size() / 2))) / totalTime * 100;
+        double cpuUtilization = ((double) (totalTime - totalIdleTime - (contextSwitches * CS)) / totalTime) * 100;
 
         System.out.println("Performance Metrics:");
         System.out.printf("Average Turnaround Time: %.2f\n", avgTAT);
         System.out.printf("Average Waiting Time: %.2f\n", avgWT);
         System.out.printf("CPU Utilization: %.2f%%\n", cpuUtilization);
+        System.out.println("Total Context Switches: " + contextSwitches);
     }
 }
